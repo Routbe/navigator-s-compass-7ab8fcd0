@@ -12,6 +12,12 @@ const SCOPES = [
   { id: "openid", label: "openid", text: "Verplicht. Geeft een vaste, anonieme gebruikers-ID (sub).", locked: true },
   { id: "profile", label: "profile", text: "Naam, @handle en profielfoto.", locked: false },
   { id: "email", label: "email", text: "E-mailadres en of het bevestigd is.", locked: false },
+  {
+    id: "linked_accounts",
+    label: "linked_accounts",
+    text: "Welke sign-ins (Google, Apple, GitHub…) aan het ROUT-account hangen. Gebruik dit om bestaande accounts te herkennen en te koppelen i.p.v. dubbel aan te maken.",
+    locked: false,
+  },
 ];
 
 function ScopesPage() {

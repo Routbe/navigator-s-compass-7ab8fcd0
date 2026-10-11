@@ -298,10 +298,10 @@ function AuthorizePage() {
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">met je ROUT-identiteit</p>
 
-        {/* Bestaand account gevonden */}
+        {/* Ingelogd als */}
         <div className="mt-6 rounded-2xl border border-border bg-background/60 p-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Bestaand account gevonden
+            Ingelogd als
           </p>
           <div className="mt-3 flex items-center gap-3">
             {prompt.account?.avatarUrl ? (
