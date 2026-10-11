@@ -1,0 +1,75 @@
+{
+  "source": "github:Routbe/navigator-s-compass-f9659802",
+  "capabilities": [
+    {
+      "capability": "application code (TanStack Start, 101 routes, ~958 files)",
+      "source": "repo",
+      "outcome": "migrate",
+      "status": "verified",
+      "next_action": ""
+    },
+    {
+      "capability": "database schema (80 SQL migrations, Neon Postgres)",
+      "source": "db/*.sql",
+      "outcome": "migrate",
+      "status": "verified",
+      "next_action": "80 migrations applied via scripts/migrate.ts"
+    },
+    {
+      "capability": "records",
+      "source": "none attached",
+      "outcome": "migrate",
+      "status": "pending",
+      "next_action": "request CSV/JSON exports from user's Neon dashboard after preview"
+    },
+    {
+      "capability": "auth (better-auth + passkeys + many OAuth providers)",
+      "source": "src/lib auth, api_.auth.$.ts",
+      "outcome": "migrate",
+      "status": "in_progress",
+      "next_action": "auth page renders; email login needs Brevo key; OAuth providers need their client IDs; kept better-auth as-is per user choice"
+    },
+    {
+      "capability": "Stripe (payments, Connect, tips, donations)",
+      "source": "repo",
+      "outcome": "preserve",
+      "status": "pending",
+      "next_action": "request keys via secret form before verification"
+    },
+    {
+      "capability": "bunq OAuth, SEPA review queue",
+      "source": "repo",
+      "outcome": "preserve",
+      "status": "pending",
+      "next_action": "request credentials before verification"
+    },
+    {
+      "capability": "email (react-email, Brevo templates)",
+      "source": "src/emails, docs/brevo-templates.md",
+      "outcome": "preserve",
+      "status": "pending",
+      "next_action": "request Brevo key before verification"
+    },
+    {
+      "capability": "public endpoints + cron (/api/public/*, cron secrets)",
+      "source": "repo",
+      "outcome": "preserve",
+      "status": "pending",
+      "next_action": "verify routes after build"
+    },
+    {
+      "capability": "storage (avatar objects, shared files, gallery media)",
+      "source": "repo",
+      "outcome": "migrate",
+      "status": "pending",
+      "next_action": "map to Lovable Cloud storage"
+    },
+    {
+      "capability": "secrets (ROUT_*, session secrets, OAuth clients)",
+      "source": "ENVIRONMENT.md",
+      "outcome": "migrate",
+      "status": "verified",
+      "next_action": "DATABASE_URL, MIGRATION_URL, URL config + 11 generated secrets stored"
+    }
+  ]
+}
