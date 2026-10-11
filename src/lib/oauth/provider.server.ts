@@ -834,10 +834,6 @@ export async function linkedAccountsOf(
   return out;
 }
 
-function _unusedClaimsTail(claims: Record<string, unknown>) {
-  return claims;
-}
-
 /* ----------------------------------------------------- toegang & userinfo */
 
 /** De console staat alleen open voor geverifieerde (betalende) leden. */
