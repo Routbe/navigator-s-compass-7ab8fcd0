@@ -10,7 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Architecture rules
-- Neon is the only database; runtime connects as least-privilege `rout_app` (`DATABASE_URL`, DML only, BYPASSRLS — access control is server-side). Schema changes are idempotent `db/NN_*.sql` files applied by `scripts/migrate.ts` with owner `MIGRATION_URL`; runtime `create table if not exists` safety nets go through `runSchemaEnsure` so privilege errors are skipped. Why: a leaked app credential must never alter schema.
+- Neon is the only database, reached exclusively through the Lovable Neon connector gateway (`src/lib/neon.ts`: `sql`, `neon()`, `GatewayPool`; keys `LOVABLE_API_KEY` + `NEON_API_KEY`), never a direct connection string. Schema changes are idempotent `db/NN_*.sql` files; runtime `create table if not exists` safety nets go through `runSchemaEnsure`. Why: the connection string stays in Lovable; gateway calls are stateless so cross-request transactions do not exist.
 - Login ON rout.be (Better Auth, `better-auth.server.ts`) and login VIA rout.be (OIDC provider, `src/lib/oauth/*`) never share config; provider env vars use the `ROUT_PROVIDER_*` prefix. Why: one role must not break the other.
 - Sign-in tiles always render; unconfigured providers show a notice. OAuth callbacks for a provider with missing credentials are refused before Better Auth is created with `provider_not_configured` (400) plus a server warning (`api_/auth/$.ts` + `isProviderConfigured`). Why: missing keys must never hide options or crash auth.
 - Public profile visibility (`publicProfile`, `timelineVisible` in `display_prefs`) is enforced server-side in the public profile/timeline functions. Why: client checks leak data.
