@@ -280,6 +280,8 @@ export type AuthorizePrompt = {
   };
   scopes?: string[];
   account?: { email: string; name: string | null; handle: string | null; avatarUrl: string | null };
+  /** Sign-in providers linked to this ROUT account (Google, Apple, …) — names only. */
+  linkedProviders?: string[];
   alreadyGranted?: boolean;
   /** Strict flow / prompt=login / max_age / acr_values → extra code required. */
   requiresStepUp?: boolean;
@@ -382,6 +384,11 @@ export const describeAuthorizeRequest = createServerFn({ method: "POST" })
         name: (context.user.userMetadata["full_name"] as string | null) ?? null,
         ...(await profileOf(context.userId)),
       },
+      linkedProviders: await (async () => {
+        const { linkedAccountsOf } = await import("./provider.server");
+        const list = await linkedAccountsOf(context.userId).catch(() => []);
+        return [...new Set(list.map((l) => l.provider))];
+      })(),
       alreadyGranted: await hasConsent(context.userId, client.clientId, scopes),
       requiresStepUp: stepUp,
       richIdentity: client.richIdentityEnabled,
