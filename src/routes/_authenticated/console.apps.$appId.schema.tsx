@@ -25,6 +25,7 @@ function SchemaPage() {
         <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
           <li><b className="text-foreground">rout_id</b> — de stabiele ROUT-ID (sub). Zoek gebruikers hierop, niet op e-mail.</li>
           {app.richIdentityEnabled && <li><b className="text-foreground">Badges</b> — overschrijf ze bij elke login vanuit de claims; nooit vanuit formulieren.</li>}
+          {app.scopes.includes("linked_accounts") && <li><b className="text-foreground">linked_accounts</b> — lijst van {"{ provider, account_id }"} (bv. google, apple, github). Vind je bij jou een gebruiker met dezelfde provider + account_id, dan is het dezelfde persoon: koppel ROUT daaraan. Meerdere treffers op verschillende accounts? Toon de gebruiker een samenvoeg-keuze in plaats van zelf te beslissen.</li>}
           {app.accountDiscoveryEnabled && <li><b className="text-foreground">Samenvoegen</b> — koppel enkel als email_verified waar is. Unieke sleutels verhinderen dubbele koppelingen.</li>}
         </ul>
       </ConsoleCard>

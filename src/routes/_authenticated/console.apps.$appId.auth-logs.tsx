@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Pause, Play } from "lucide-react";
 import { ConsolePage } from "@/components/console/ConsolePage";
+import { useAppPage } from "@/components/console/useAppPage";
+import { cleanRedirectUri } from "@/lib/oauth/redirect-match";
+import { redirectError } from "@/lib/oauth/redirect-rules";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { errorText } from "@/components/console/console-data";
@@ -21,6 +24,12 @@ function AuthLogsPage() {
   const [paused, setPaused] = useState(false);
   const [errorsOnly, setErrorsOnly] = useState(false);
   const list = useServerFn(listOAuthDebugEvents);
+  const { app, persist, saving } = useAppPage(appId);
+  const addRedirect = async (raw: string) => {
+    const uri = cleanRedirectUri(raw);
+    if (redirectError(uri, app.redirectUris)) return;
+    await persist({ redirectUris: [...app.redirectUris, uri] });
+  };
   const { data, error } = useQuery({
     queryKey: ["console", "auth-logs", appId, errorsOnly],
     queryFn: () => list({ data: { id: appId, errorsOnly } }),
@@ -65,6 +74,16 @@ function AuthLogsPage() {
                   <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 font-sans text-sm">
                     <p className="font-medium">{hint.title}</p>
                     <p className="text-muted-foreground">{hint.fix}</p>
+                    {e.errorCode === "invalid_redirect_uri" && e.detail.redirectUri && !app.redirectUris.includes(cleanRedirectUri(e.detail.redirectUri)) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Button size="sm" disabled={saving || Boolean(redirectError(cleanRedirectUri(e.detail.redirectUri), app.redirectUris))} onClick={() => addRedirect(e.detail.redirectUri!)}>
+                          Voeg deze URI toe aan Redirects
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          Hoort dit adres bij een andere app? Controleer dan de client_id in je code.
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
