@@ -4,13 +4,7 @@ import { magicLink } from "better-auth/plugins/magic-link";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { passkey } from "@better-auth/passkey";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
-
-// Vercel's Node runtime may lack a global WebSocket; the Neon Pool needs one.
-if (typeof (globalThis as { WebSocket?: unknown }).WebSocket === "undefined") {
-  neonConfig.webSocketConstructor = ws as never;
-}
+import { GatewayPool } from "@/lib/neon";
 import { APP_DOMAINS } from "@/lib/app-domains";
 import { canonicalAppUrl, isApprovedHost } from "@/lib/app-url";
 
@@ -59,7 +53,7 @@ function envAny(name: string): string | undefined {
 export function resolveAuthSecret(): { secret: string; derived: boolean } | null {
   const direct = envAny("BETTER_AUTH_SECRET");
   if (direct && direct.length >= 32) return { secret: direct, derived: false };
-  const seed = env("SESSION_SECRET") ?? env("OAUTH_STATE_SECRET") ?? env("DATABASE_URL");
+  const seed = env("SESSION_SECRET") ?? env("OAUTH_STATE_SECRET") ?? env("NEON_API_KEY");
   if (!seed) return null;
   const secret = createHash("sha256").update(`rout-better-auth:${seed}`).digest("hex");
   return { secret, derived: true };
@@ -135,8 +129,7 @@ function gitlabIssuer(): string {
 }
 
 export function createRoutAuth(request?: Request) {
-  const connectionString = env("DATABASE_URL");
-  if (!connectionString) throw new Error("DATABASE_URL ontbreekt.");
+  if (!process.env["NEON_API_KEY"] || !process.env["LOVABLE_API_KEY"]) throw new Error("Neon-connector ontbreekt (NEON_API_KEY).");
   const resolved = resolveAuthSecret();
   if (!resolved) throw new Error("BETTER_AUTH_SECRET ontbreekt.");
   if (resolved.derived) console.warn("[auth] BETTER_AUTH_SECRET missing or <32 chars; using derived fallback. Set it on Vercel.");
@@ -301,7 +294,7 @@ export function createRoutAuth(request?: Request) {
     baseURL: baseUrlFor(request),
     basePath: "/api/auth",
     secret,
-    database: new Pool({ connectionString }),
+    database: new GatewayPool() as never,
     user: { modelName: "neon_auth.user" },
     session: {
       modelName: "neon_auth.session",
@@ -400,11 +393,9 @@ export async function liveAuthChecks() {
   let database = false;
   let databaseError: string | null = null;
   try {
-    const cs = env("DATABASE_URL");
-    if (cs) {
-      const pool = new Pool({ connectionString: cs });
+    if (process.env["NEON_API_KEY"]) {
+      const pool = new GatewayPool();
       await pool.query("select 1 from neon_auth.verification limit 1");
-      await pool.end();
       database = true;
     }
   } catch (e) {
@@ -418,7 +409,7 @@ export function authDiagnostics(request?: Request) {
   const base = baseUrlFor(request);
   const resolved = resolveAuthSecret();
   const core = {
-    DATABASE_URL: Boolean(env("DATABASE_URL")),
+    DATABASE_URL: Boolean(process.env["NEON_API_KEY"]),
     BETTER_AUTH_SECRET: Boolean(resolved),
     BETTER_AUTH_URL: Boolean(env("BETTER_AUTH_URL") ?? env("NEXT_PUBLIC_APP_URL")),
   };

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { neon } from "@neondatabase/serverless";
+import { neon } from "@/lib/neon";
 import { z } from "zod";
 import { currentUser } from "@/lib/auth/session.server";
 import { clientIp } from "@/lib/api-guard.server";
@@ -93,7 +93,7 @@ export const Route = createFileRoute("/api/claim-root")({
         const cleanHandle = handle.replace(/^@/, "").toLowerCase();
         const requestedSubdomain = `${cleanHandle}.rout.be`;
 
-        const databaseUrl = process.env["DATABASE_URL"];
+        const databaseUrl = process.env["NEON_API_KEY"];
         const brevoApiKey = process.env["BREVO_API_KEY"];
         if (!databaseUrl) {
           return Response.json({ error: "Serverconfiguratie ontbreekt" }, { status: 500 });
