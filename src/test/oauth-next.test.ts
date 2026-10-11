@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { safeNextPath } from "/dev-server/src/lib/auth/post-auth";
+import { safeNextPath } from "@/lib/auth/post-auth";
 test("keeps oauth", () => {
   const v = "/oauth/authorize?client_id=a&state=xyz&code_challenge=c";
   expect(safeNextPath(v)).toBe(v);
