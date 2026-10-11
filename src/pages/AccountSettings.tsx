@@ -4,9 +4,6 @@ import { useSearch } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Download,
-  Eye,
-  EyeOff,
-  KeyRound,
   Languages,
   Loader2,
   LogOut,
@@ -17,6 +14,10 @@ import {
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PasskeysPanel } from "@/components/settings/PasskeysPanel";
+import { PasswordPanel } from "@/components/settings/PasswordPanel";
+import { DesignTemplatesPanel } from "@/components/settings/DesignTemplatesPanel";
+import { getPasswordState, requestSecurityCode, confirmSecurityCode } from "@/lib/account-security.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { ConnectedAccounts } from "@/components/settings/ConnectedAccounts";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { PhoneVerification } from "@/components/settings/PhoneVerification";
@@ -30,7 +31,6 @@ import { DataExportCard } from "@/components/dashboard/DataExportCard";
 import { CustomDomainPanel } from "@/components/dashboard/CustomDomainPanel";
 
 import { Input } from "@/components/ui/input";
-import { PasswordField, isPasswordCompliant } from "@/components/PasswordField";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -86,12 +86,12 @@ export default function AccountSettings() {
   const [emailCurrentPassword, setEmailCurrentPassword] = useState("");
   const [busyEmail, setBusyEmail] = useState(false);
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [busyPassword, setBusyPassword] = useState(false);
+  const fetchPasswordState = useServerFn(getPasswordState);
+  const askSecurityCode = useServerFn(requestSecurityCode);
+  const checkSecurityCode = useServerFn(confirmSecurityCode);
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [mfaEmailCode, setMfaEmailCode] = useState("");
+  const [mfaCodeSentTo, setMfaCodeSentTo] = useState<string | null>(null);
 
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
@@ -165,18 +165,35 @@ export default function AccountSettings() {
   const openNeonAccount = () => nav("/account/settings");
 
   const changeEmail = openNeonAccount;
-  const changePassword = openNeonAccount;
 
   const enable2fa = () => {
     setMfaUri(null);
     setMfaCode("");
     setMfaPassword("");
     setMfaBackup([]);
+    setMfaEmailCode("");
+    setMfaCodeSentTo(null);
     setMfaDialogOpen(true);
+    void fetchPasswordState().then((r) => setHasPassword(r.hasPassword)).catch(() => setHasPassword(true));
+  };
+
+  const sendMfaEmailCode = async () => {
+    const r = await askSecurityCode({ data: { purpose: "two_factor" } });
+    if (r.ok) {
+      setMfaCodeSentTo(r.sentTo);
+      toast.success(`Code verstuurd naar ${r.sentTo}`);
+    } else toast.error(r.reason === "rate_limited" ? "Te veel aanvragen. Probeer later opnieuw." : "Geen e-mailadres gevonden.");
   };
 
   const start2fa = async () => {
     setMfaBusy(true);
+    if (hasPassword === false) {
+      const ok = await checkSecurityCode({ data: { purpose: "two_factor", code: mfaEmailCode } }).then((r) => r.ok).catch(() => false);
+      if (!ok) {
+        setMfaBusy(false);
+        return toast.error("Deze code klopt niet of is verlopen.");
+      }
+    }
     const res = await authClient.twoFactor.enable({ password: mfaPassword || undefined } as never);
     setMfaBusy(false);
     if (res.error) {
@@ -205,8 +222,20 @@ export default function AccountSettings() {
   };
 
   const disable2fa = async () => {
-    const password = window.prompt("Enter your password to turn off 2FA (leave empty if you have none)") ?? null;
-    if (password === null) return;
+    const state = await fetchPasswordState().catch(() => ({ hasPassword: true }));
+    let password = "";
+    if (state.hasPassword) {
+      const typed = window.prompt("Geef je wachtwoord om 2FA uit te zetten");
+      if (typed === null) return;
+      password = typed;
+    } else {
+      const sent = await askSecurityCode({ data: { purpose: "two_factor" } });
+      if (!sent.ok) return toast.error("De code kon niet verstuurd worden.");
+      const code = window.prompt(`We stuurden een code naar ${sent.sentTo}. Vul die in om 2FA uit te zetten.`);
+      if (!code) return;
+      const ok = await checkSecurityCode({ data: { purpose: "two_factor", code } }).then((r) => r.ok).catch(() => false);
+      if (!ok) return toast.error("Deze code klopt niet of is verlopen.");
+    }
     const res = await authClient.twoFactor.disable({ password: password || undefined } as never);
     if (res.error) return toast.error(res.error.message ?? "Could not turn off 2FA.");
     setMfaEnabled(false);
@@ -406,6 +435,7 @@ export default function AccountSettings() {
               })}
             </div>
           </section>
+          <DesignTemplatesPanel />
         </TabsContent>
 
         {/* Tab 2 — Account & security */}
@@ -441,55 +471,7 @@ export default function AccountSettings() {
             </Button>
           </section>
 
-          <section className="space-y-3 rounded-2xl border border-border bg-card p-4 sm:p-5">
-            <h2 className="flex items-center gap-2 text-lg font-medium">
-              <KeyRound className="h-4 w-4" /> Password
-            </h2>
-            <div className="relative">
-              <Input
-                value={currentPassword}
-                type={showCurrent ? "text" : "password"}
-                placeholder="Current password"
-                maxLength={72}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="input-field h-11 rounded-xl pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowCurrent((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                aria-label="Toggle password visibility"
-              >
-                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <PasswordField label="New password" value={newPassword} onChange={setNewPassword} />
-            <div className="relative">
-              <Input
-                value={confirmPassword}
-                type={showConfirm ? "text" : "password"}
-                placeholder="Confirm new password"
-                maxLength={72}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="input-field h-11 rounded-xl pr-10 focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirm((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
-                aria-label="Toggle password visibility"
-              >
-                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <Button
-              onClick={changePassword}
-              disabled={busyPassword || !isPasswordCompliant(newPassword)}
-              className="h-11 w-full sm:w-auto"
-            >
-              Update password
-            </Button>
-          </section>
+          <PasswordPanel />
 
           <PasskeysPanel />
 
@@ -636,12 +618,30 @@ export default function AccountSettings() {
           </DialogHeader>
           {!mfaUri ? (
             <div className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">
-                Confirm with your password. Signed in with Google, Infomaniak or another provider and no password? Leave it empty.
-              </p>
-              <Input type="password" value={mfaPassword} onChange={(e) => setMfaPassword(e.target.value)}
-                placeholder="Password (optional)" autoComplete="current-password" className="h-11 rounded-xl" />
-              <Button onClick={start2fa} disabled={mfaBusy} className="h-11 w-full">
+              {hasPassword === null ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : hasPassword ? (
+                <>
+                  <p className="text-sm text-muted-foreground">Bevestig met je wachtwoord.</p>
+                  <Input type="password" value={mfaPassword} onChange={(e) => setMfaPassword(e.target.value)}
+                    placeholder="Wachtwoord" autoComplete="current-password" className="h-11 rounded-xl" />
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Je hebt geen wachtwoord. Bevestig met een code die we naar je e-mail sturen.
+                  </p>
+                  <Button variant="outline" onClick={sendMfaEmailCode} className="h-11">
+                    {mfaCodeSentTo ? "Nieuwe code sturen" : "Stuur code naar mijn e-mail"}
+                  </Button>
+                  {mfaCodeSentTo && (
+                    <Input value={mfaEmailCode} onChange={(e) => setMfaEmailCode(e.target.value.replace(/\D/g, ""))}
+                      maxLength={6} inputMode="numeric" autoComplete="one-time-code" placeholder="Code uit e-mail"
+                      className="h-11 rounded-xl text-center tracking-widest" />
+                  )}
+                </>
+              )}
+              <Button onClick={start2fa} disabled={mfaBusy || hasPassword === null || (hasPassword ? !mfaPassword : mfaEmailCode.length !== 6)} className="h-11 w-full">
                 {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Show QR code"}
               </Button>
             </div>
