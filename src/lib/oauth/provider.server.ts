@@ -796,17 +796,45 @@ export async function identityClaims(
   }
   if (scopes.includes("linked_accounts")) {
     // Alleen dienst + account-ID: genoeg om dubbele accounts bij de app te voorkomen.
-    try {
-      const linked = (await sql`select provider, provider_account_id from public.user_identities
-        where user_id = ${userId} order by provider, created_at`) as Row[];
-      claims["linked_accounts"] = linked.map((l) => ({
-        provider: l["provider"],
-        account_id: l["provider_account_id"],
-      }));
-    } catch {
-      claims["linked_accounts"] = [];
-    }
+    claims["linked_accounts"] = await linkedAccountsOf(userId);
   }
+  return claims;
+}
+
+/** Social sign-ins on this member: Better Auth accounts + fediverse identities. Never tokens. */
+export async function linkedAccountsOf(
+  userId: string,
+): Promise<Array<{ provider: string; account_id: string }>> {
+  const out: Array<{ provider: string; account_id: string }> = [];
+  const seen = new Set<string>();
+  const add = (provider: unknown, id: unknown) => {
+    const p = String(provider ?? "").toLowerCase();
+    const a = String(id ?? "");
+    if (!p || !a || p === "credential" || p === "email") return;
+    const key = `${p}:${a}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ provider: p, account_id: a });
+  };
+  try {
+    const ba = (await sql`select a."providerId" as p, a."accountId" as a
+      from public.users u join neon_auth.account a on a."userId"::text = u.user_metadata->>'neon_auth_id'
+      where u.id = ${userId} order by a."createdAt"`) as Row[];
+    ba.forEach((r) => add(r["p"], r["a"]));
+  } catch (e) {
+    console.warn("[oauth] linked accounts (auth) skipped:", (e as Error).message);
+  }
+  try {
+    const fedi = (await sql`select provider, provider_account_id from public.user_identities
+      where user_id = ${userId} order by provider, created_at`) as Row[];
+    fedi.forEach((r) => add(r["provider"], r["provider_account_id"]));
+  } catch {
+    /* optional table */
+  }
+  return out;
+}
+
+function _unusedClaimsTail(claims: Record<string, unknown>) {
   return claims;
 }
 
