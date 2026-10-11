@@ -84,6 +84,20 @@ const SCOPE_TEXT: Record<string, { icon: typeof User; text: string }> = {
   },
 };
 
+const PROVIDER_LABEL: Record<string, string> = {
+  google: "Google",
+  apple: "Apple",
+  github: "GitHub",
+  gitlab: "GitLab",
+  microsoft: "Microsoft",
+  infomaniak: "Infomaniak",
+  oidc: "ROUT ID",
+  bluesky: "Bluesky",
+  mastodon: "Mastodon",
+  discord: "Discord",
+  linkedin: "LinkedIn",
+};
+
 /** "je e-mail en je openbare profiel" — one plain sentence for the requested data. */
 function summarize(scopes: string[]): string {
   const parts: string[] = [];
@@ -97,7 +111,7 @@ function summarize(scopes: string[]): string {
 
 function AuthorizePage() {
   const search = Route.useSearch();
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const describe = useServerFn(describeAuthorizeRequest);
   const decide = useServerFn(decideAuthorizeRequest);
   const sendCode = useServerFn(sendStepUpCode);
@@ -197,6 +211,16 @@ function AuthorizePage() {
     }
   }
 
+  async function switchAccount() {
+    setBusy(true);
+    const next = `${window.location.pathname}${window.location.search}`;
+    try {
+      await signOut();
+    } finally {
+      window.location.href = `/auth/sign-in?next=${encodeURIComponent(next)}`;
+    }
+  }
+
   async function choose(allow: boolean) {
     setBusy(true);
     try {
@@ -216,7 +240,10 @@ function AuthorizePage() {
   if (loading || !user || !prompt) {
     return (
       <main className="dark flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>{!loading && !user ? "Even aanmelden bij ROUT…" : "Aanvraag controleren…"}</span>
+        </div>
       </main>
     );
   }
@@ -299,7 +326,31 @@ function AuthorizePage() {
             </div>
             <Check className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
           </div>
+          {(prompt.linkedProviders?.length ?? 0) > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Gekoppeld:</span>
+              {prompt.linkedProviders!.map((p) => (
+                <span key={p} className="rounded-full border border-border px-2 py-0.5 text-xs capitalize">
+                  {PROVIDER_LABEL[p] ?? p}
+                </span>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={switchAccount}
+            disabled={busy}
+            className="mt-3 text-xs text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Ander account gebruiken
+          </button>
         </div>
+        {scopes.includes("linked_accounts") && (prompt.linkedProviders?.length ?? 0) > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Had je bij {appName} al een account via{" "}
+            {prompt.linkedProviders!.map((p) => PROVIDER_LABEL[p] ?? p).join(", ")}? Dan kan {appName} het herkennen en koppelen in plaats van een dubbel account te maken.
+          </p>
+        )}
 
         {/* Transparantie */}
         <p className="mt-6 text-sm">{summarize(scopes)}</p>
@@ -389,11 +440,11 @@ function AuthorizePage() {
           disabled={busy || needsCode}
           onClick={() => choose(true)}
         >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Doorgaan als ${handle ? `@${handle}` : "jezelf"}`}
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Autoriseren"}
         </Button>
         <Button
-          variant="ghost"
-          className="mt-2 w-full text-muted-foreground"
+          variant="outline"
+          className="mt-2 h-11 w-full rounded-2xl"
           disabled={busy}
           onClick={() => choose(false)}
         >
