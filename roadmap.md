@@ -5,3 +5,7 @@
 - [x] D: Custom domain DNS stap
 - [x] E: Telegram webhook secret + setWebhook script
 - [x] F: Hybride identiteitsverificatie (db/81, server, UI)
+- [x] G: SMS gateway payload fix + Telegram /start
+- [x] H: Wachtwoord/2FA zonder wachtwoord via e-mailcode
+- [x] I: Account samenvoegen (handle/ontwerp kiezen, e-mailcode, alles samen)
+- [x] J: Opgeslagen kaartontwerpen

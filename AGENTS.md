@@ -29,3 +29,6 @@
 - Emailed action links (review, booking) only confirm on GET, change on POST; status mails send fire-and-forget. Why: scanners open links; mail failures never block actions.
 - 2FA/passkeys: Better Auth `twoFactor` + `@better-auth/passkey`, tables in `neon_auth` (db/77). Why: no custom crypto.
 - Uploaded user files are tracked in `user_assets` (db/80) with retention set server-side by `asset-retention.ts`; expired rows are purged by `/api/public/cron/cleanup-assets`. Why: storage never grows without an owner or an end date.
+
+- Sensitive account changes (merge, setting/resetting a password, 2FA on passwordless accounts) require a 6-digit e-mail code from `security-code.server.ts` (`security_codes`, db/84). Why: a live session alone must not be enough for irreversible changes.
+- Account merge moves every public row with `user_id`/`profile_id` (row by row, duplicates dropped) and re-homes Better Auth accounts via `user_metadata.neon_auth_id`; the unchosen card design is saved in `profile_design_templates`. Why: nothing may be lost or duplicated, and sign-ins must keep resolving to the kept account.
