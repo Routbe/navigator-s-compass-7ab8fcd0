@@ -127,7 +127,7 @@ export default function AuthNeon({ initialMode = "magic" }: { initialMode?: Mode
     const params = new URLSearchParams(window.location.search);
     const code = params.get("error");
     const legacy = params.get("bluesky_error") ?? params.get("mastodon_error");
-    const redirect = params.get("redirect");
+    const redirect = params.get("redirect") ?? params.get("next");
     if (code) {
       const known = (AUTH_ERROR_CODES as readonly string[]).includes(code) ? code : "provider_rejected";
       toast.error(AUTH_ERROR_TEXT[known]);

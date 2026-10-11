@@ -35,8 +35,10 @@ export function safeNextPath(raw: string | null | undefined): string | null {
   if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return null;
   if (/[\u0000-\u001f]/.test(value)) return null;
   if (value.startsWith("/auth") || value.startsWith("/api/")) return null;
-  // Strip auth-ish query state so it never lands in history.
   const [path, query = ""] = value.split("?");
+  // "Login met ROUT": the authorize request must survive sign-in intact (state, PKCE).
+  if (path === "/oauth/authorize") return value;
+  // Strip auth-ish query state so it never lands in history.
   const params = new URLSearchParams(query);
   for (const key of [...params.keys()]) {
     if (/^(token|code|state|error|success|draft)$/i.test(key)) params.delete(key);
