@@ -1,45 +1,41 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireAuth } from "@/lib/auth/middleware";
 
-/**
- * Step A — the primary account confirms its password and receives a one-time
- * pin plus a QR payload, valid for five minutes.
- */
+/** Step A — the kept account (signed in) gets a one-time pin + QR, valid 5 minutes. */
 export const startAccountMerge = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((input: { password?: string } | undefined) => ({ password: input?.password?.slice(0, 200) || "" }))
-  .handler(async ({ data, context }) => {
-    const { createMergeTicket, verifyOwnPassword } = await import("./account-merge.server");
-    // The authenticated session authorizes this; a password is optional extra proof.
-    if (data.password && !(await verifyOwnPassword(context.userId, data.password))) {
-      return { ok: false as const, reason: "bad_password" as const };
-    }
+  .handler(async ({ context }) => {
+    const { createMergeTicket } = await import("./account-merge.server");
     const ticket = await createMergeTicket(context.userId);
-    return {
-      ok: true as const,
-      pin: ticket.pin,
-      qrPayload: `rout-merge:${ticket.token}`,
-      expiresAt: ticket.expiresAt,
-    };
+    return { ok: true as const, pin: ticket.pin, qrPayload: `rout-merge:${ticket.token}`, expiresAt: ticket.expiresAt };
   });
 
-/**
- * Steps B–D — the secondary account redeems the pin (or scanned token), proves
- * its identity and hands everything over to the primary account.
- */
+type CodeInput = { pin?: string; token?: string };
+const codeOf = (input: CodeInput) => {
+  const token = input?.token?.replace(/^rout-merge:/, "").trim() || null;
+  const pin = input?.pin?.trim() || null;
+  if (!pin && !token) throw new Error("code_required");
+  return { pin, token };
+};
+
+/** Step B — the second account previews both accounts; a code is e-mailed. */
+export const previewAccountMerge = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: CodeInput) => codeOf(input))
+  .handler(async ({ data, context }) => {
+    const { previewMerge } = await import("./account-merge.server");
+    return previewMerge({ secondaryUserId: context.userId, ...data, request: getRequest() });
+  });
+
+/** Step C — e-mail code + choices; everything moves to the kept account. */
 export const redeemAccountMerge = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((input: { pin?: string; token?: string; password?: string }) => {
-    if (!input?.pin && !input.token) throw new Error("code_required");
-    return input;
+  .inputValidator((input: CodeInput & { code: string; keepHandle: string; keepDesign: string }) => {
+    const side = (v: string) => (v === "secondary" ? "secondary" : "primary") as "primary" | "secondary";
+    return { ...codeOf(input), code: String(input.code ?? "").slice(0, 12), keepHandle: side(input.keepHandle), keepDesign: side(input.keepDesign) };
   })
   .handler(async ({ data, context }) => {
     const { redeemMergeTicket } = await import("./account-merge.server");
-    const token = data.token?.replace(/^rout-merge:/, "") ?? null;
-    return redeemMergeTicket({
-      secondaryUserId: context.userId,
-      secondaryPassword: data.password,
-      pin: data.pin?.trim() || null,
-      token: token?.trim() || null,
-    });
+    return redeemMergeTicket({ secondaryUserId: context.userId, ...data });
   });

@@ -19,7 +19,7 @@ export function smsProviderId(): SmsProviderId {
 
 export function missingSmsKeys(): string[] {
   const need: Record<SmsProviderId, string[]> = {
-    "android-gateway": env("SMS_GATEWAY_USER") && env("SMS_GATEWAY_PASSWORD") ? [] : ["SMS_API_KEY"],
+    "android-gateway": env("SMS_GATEWAY_USER") && env("SMS_GATEWAY_PASSWORD") ? [] : env("SMS_API_KEY") ? [] : ["SMS_GATEWAY_USER", "SMS_GATEWAY_PASSWORD"],
     twilio: ["SMS_API_KEY", "SMS_SENDER_ID"],
     brevo: ["SMS_API_KEY", "SMS_SENDER_ID"],
   };
@@ -60,7 +60,8 @@ export function getSmsSender(): SmsSender | null {
     return {
       id,
       async send(to, text) {
-        const payload: Record<string, unknown> = { phoneNumbers: [to], message: text };
+        // sms-gate.app v1 requires `textMessage: { text }`; a bare `message` is rejected (400).
+        const payload: Record<string, unknown> = { phoneNumbers: [to], textMessage: { text } };
         if (deviceId) payload.deviceId = deviceId;
         const res = await fetch(url, {
           method: "POST",

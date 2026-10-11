@@ -144,7 +144,16 @@ Server-only. Android gateway bearer token, Brevo API key, or Twilio `<AccountSID
 Sender name or number (required for Twilio and Brevo).
 
 ## SMS_GATEWAY_URL
-Android gateway endpoint (POST JSON `{to, text, sender}`).
+sms-gate.app base URL, e.g. `https://api.sms-gate.app` (cloud). `/3rdparty/v1/message` is appended; body `{phoneNumbers, textMessage:{text}, deviceId}`.
+
+## SMS_GATEWAY_USER / SMS_GATEWAY_PASSWORD / SMS_GATEWAY_DEVICE_ID
+Server-only. Cloud-server username/password and device id from the SMS Gateway Android app (basic auth).
+
+## SMS_ALLOW_INTERNATIONAL
+Optional `true`: also send outbound SMS to non-Belgian numbers (default: only +32; others verify via Telegram/inbound SMS).
+
+## SMS_INBOUND_TOKEN
+Server-only random token; set the sms-gate.app `sms:received` webhook to `https://rout.be/api/public/sms/inbound?token=<value>`.
 
 ## PHONE_ENCRYPTION_KEY
 Server-only, 32+ random characters. Encrypts stored phone numbers (AES-GCM) and hashes codes.

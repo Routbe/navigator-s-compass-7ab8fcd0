@@ -47,7 +47,7 @@ export type RequestResult =
   | { status: "manual"; code: string; expiresAt: string; masked: string; line: string };
 
 export async function requestPhoneCode(userId: string, phone: string, ip: string): Promise<RequestResult> {
-  const auto = usesAutoSms(phone);
+  const auto = usesAutoSms(phone) || process.env["SMS_ALLOW_INTERNATIONAL"]?.trim() === "true";
   const sender = getSmsSender();
   if (auto && !sender) {
     console.warn(`[phone] SMS not configured; missing ${missingSmsKeys().join(", ")}`);
